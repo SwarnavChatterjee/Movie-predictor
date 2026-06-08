@@ -209,19 +209,16 @@
     <p>Powered by SVD Matrix Factorization · MovieLens 1M</p>
   </header>
 
-  <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('user')">👤 By User</button>
-    <button class="tab" onclick="switchTab('genre')">🎭 By Genre</button>
+    <button class="tab active" onclick="switchTab('user', event)">👤 By User</button>
+    <button class="tab" onclick="switchTab('genre', event)">🎭 By Genre</button>
   </div>
 
-  <!-- User Search -->
   <div class="search-container" id="user-search">
     <input type="number" id="userInput" placeholder="Enter User ID (1–6040)" min="1" max="6040" />
     <button class="go-btn" onclick="getByUser()">Recommend</button>
   </div>
 
-  <!-- Genre Search -->
   <div class="search-container" id="genre-search" style="display:none;">
     <select id="genreInput">
       <option value="">Select a genre...</option>
@@ -234,31 +231,31 @@
   <div class="grid" id="results"></div>
 
   <script>
-    let currentTab = 'user'
+    const API = 'https://movie-predictor-qz3i.onrender.com'
 
-    // Load genres on page load
     async function loadGenres() {
-      const res = await fetch('http://127.0.0.1:8000/genres')
-      const data = await res.json()
-      const select = document.getElementById('genreInput')
-      data.genres.forEach(g => {
-        const opt = document.createElement('option')
-        opt.value = g
-        opt.textContent = g
-        select.appendChild(opt)
-      })
+      try {
+        const res = await fetch(`${API}/genres`)
+        const data = await res.json()
+        const select = document.getElementById('genreInput')
+        data.genres.forEach(g => {
+          const opt = document.createElement('option')
+          opt.value = g
+          opt.textContent = g
+          select.appendChild(opt)
+        })
+      } catch (e) {
+        console.error('Failed to load genres', e)
+      }
     }
 
     loadGenres()
 
-    function switchTab(tab) {
-      currentTab = tab
+    function switchTab(tab, event) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
       event.target.classList.add('active')
-
       document.getElementById('user-search').style.display = tab === 'user' ? 'flex' : 'none'
       document.getElementById('genre-search').style.display = tab === 'genre' ? 'flex' : 'none'
-
       document.getElementById('results').innerHTML = ''
       document.getElementById('results-title').textContent = ''
       document.getElementById('error').textContent = ''
@@ -277,7 +274,7 @@
       showLoader()
 
       try {
-        const res = await fetch(`http://127.0.0.1:8000/recommend/${userId}?n=10`)
+        const res = await fetch(`${API}/recommend/${userId}?n=10`)
         const data = await res.json()
 
         if (data.error) { errorDiv.textContent = data.error; clearResults(); return }
@@ -286,12 +283,13 @@
           `Top 10 recommendations for <span>User ${userId}</span>`
 
         renderCards(data.recommendations.map(m => ({
-          ...m,
-          rating: m.predicted_rating,
-          label: 'Predicted Rating'
+          ...m, rating: m.predicted_rating, label: 'Predicted Rating'
         })))
 
-      } catch { errorDiv.textContent = 'Could not connect to API. Make sure uvicorn is running.' }
+      } catch {
+        errorDiv.textContent = 'Could not connect to API.'
+        clearResults()
+      }
     }
 
     async function getByGenre() {
@@ -304,7 +302,7 @@
       showLoader()
 
       try {
-        const res = await fetch(`http://127.0.0.1:8000/recommend/genre/${genre}?n=10`)
+        const res = await fetch(`${API}/recommend/genre/${genre}?n=10`)
         const data = await res.json()
 
         if (data.error) { errorDiv.textContent = data.error; clearResults(); return }
@@ -313,18 +311,18 @@
           `Top 10 <span>${genre}</span> movies`
 
         renderCards(data.movies.map(m => ({
-          ...m,
-          rating: m.avg_rating,
-          label: 'Avg Rating'
+          ...m, rating: m.avg_rating, label: 'Avg Rating'
         })))
 
-      } catch { errorDiv.textContent = 'Could not connect to API. Make sure uvicorn is running.' }
+      } catch {
+        errorDiv.textContent = 'Could not connect to API.'
+        clearResults()
+      }
     }
 
     function renderCards(movies) {
       const resultsDiv = document.getElementById('results')
       resultsDiv.innerHTML = ''
-
       movies.forEach((movie, index) => {
         const genres = movie.genres.split('|').map(g =>
           `<span class="genre-tag">${g}</span>`).join('')
